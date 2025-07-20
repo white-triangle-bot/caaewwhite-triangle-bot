@@ -1,62 +1,26 @@
-import requests
-import time
-from telegram import Bot
+from flask import Flask
+from telegram import Bot, Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+import os
+import threading
 
-# === Конфигурация ===
-BOT_TOKEN = '7967429095:AAFiOFRlxNTODhMqi4ngrmDl_aB5byhWgYE'  # Твой токен Telegram-бота
-CHAT_ID = 430582176  # Твой Telegram ID
-SPREAD_THRESHOLD = 0.80  # Минимальная прибыль (в рублях на 1 USDT)
+app = Flask(__name__)
 
-bot = Bot(token=BOT_TOKEN)
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
-def get_bybit_p2p_price(trade_type, asset="USDT", fiat="RUB"):
-    url = "https://api2.bybit.com/fiat/otc/item/online"
-    payload = {
-        "userId": "",
-        "tokenId": asset,
-        "currencyId": fiat,
-        "payment": [],
-        "side": trade_type,
-        "size": "",
-        "page": 1,
-        "amount": "",
-        "authMaker": False
-    }
-    headers = {"Content-Type": "application/json"}
-    response = requests.post(url, json=payload, headers=headers)
-    data = response.json()
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Бот работает!")
 
-    if data.get("result") and data["result"]["items"]:
-        return float(data["result"]["items"][0]["price"])
-    else:
-        return None
+def start_bot():
+    app_telegram = ApplicationBuilder().token(BOT_TOKEN).build()
+    app_telegram.add_handler(CommandHandler("start", start))
+    app_telegram.run_polling()
 
-def check_opportunity():
-    buy_price = get_bybit_p2p_price("Buy")
-    sell_price = get_bybit_p2p_price("Sell")
+threading.Thread(target=start_bot).start()
 
-    if not buy_price or not sell_price:
-        print("Нет данных с Bybit")
-        return
+@app.route('/')
+def home():
+    return 'Bot is running!'
 
-    spread = sell_price - buy_price
-    if spread >= SPREAD_THRESHOLD:
-        message = (
-            f"💰 Возможность 'белого треугольника' на Bybit!\n"
-            f"🔻 Купить USDT по: {buy_price:.2f} ₽\n"
-            f"🔺 Продать USDT по: {sell_price:.2f} ₽\n"
-            f"📈 Профит: {spread:.2f} ₽ на 1 USDT"
-        )
-        bot.send_message(chat_id=CHAT_ID, text=message)
-        print(message)
-    else:
-        print(f"Нет профита. Покупка: {buy_price:.2f}, Продажа: {sell_price:.2f}")
-
-if __name__ == "__main__":
-    while True:
-        try:
-            check_opportunity()
-            time.sleep(15)
-        except Exception as e:
-            print(f"❌ Ошибка: {e}")
-            time.sleep(30)
+if __name__ == '__main__':
+    app.run(host="0.0.0.0", port=10000)
