@@ -1,1 +1,4 @@
 3.10.13
+git add .python-version
+git commit -m "fix: force Python 3.10 to fix aiohttp build"
+git push
